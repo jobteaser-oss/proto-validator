@@ -16,8 +16,6 @@
 
 -export([main/1]).
 
-
-
 -spec main(list(string())) -> no_return().
 main(Args) ->
   io:setopts([{encoding, unicode}]),
