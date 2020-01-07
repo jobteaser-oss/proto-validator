@@ -16,16 +16,33 @@
 
 -export([main/1]).
 
+
+
 -spec main(list(string())) -> no_return().
-main(_Args) ->
+main(Args) ->
   io:setopts([{encoding, unicode}]),
-  die("not implemented").
+  CommandLineSpec = command_line_spec(),
+  case getopt:parse(CommandLineSpec, Args) of
+    {ok, {Options, ProtoFiles}} ->
+      put(verbose, proplists:is_defined(verbose, Options)),
+      info("using options ~p", [Options]),
+      info("processing proto files ~p", [ProtoFiles]),
+      erlang:halt(0);
+    {error, {Reason, Data}} ->
+      io:format("error: ~s ~p~n~n", [Reason, Data]),
+      getopt:usage(CommandLineSpec, escript:script_name()),
+      erlang:halt(1)
+  end.
 
--spec die(string()) -> no_return().
-die(String) ->
-  die(String, []).
+-spec info(string(), list(term())) -> ok.
+info(Format, Args) ->
+  case get(verbose) of
+    true -> io:format(Format ++ "\n", Args), ok;
+    _ -> ok
+  end.
 
--spec die(string(), list(term())) -> no_return().
-die(Format, Args) ->
-  io:format(standard_error, [Format, $\n], Args),
-  erlang:halt(1).
+-spec command_line_spec() -> list(getopt:option_spec()).
+command_line_spec() ->
+    [{help, $h, "help", undefined, "print help and exit"},
+     {include, $I, "include", string, "add an include path"},
+     {verbose, $v, "verbose", undefined, "enable processing logs"}].
