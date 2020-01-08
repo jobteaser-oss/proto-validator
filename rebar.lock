@@ -1,5 +1,9 @@
 {"1.1.0",
-[{<<"getopt">>,{pkg,<<"getopt">>,<<"1.0.1">>},0}]}.
+[{<<"getopt">>,{pkg,<<"getopt">>,<<"1.0.1">>},0},
+ {<<"gpb">>,
+  {git,"git://github.com/jobteaser-oss/gpb.git",
+       {ref,"b02a6da71d6f309c46a79802647b2a77e55a3dc4"}},
+  0}]}.
 [
 {pkg_hash,[
  {<<"getopt">>, <<"C73A9FA687B217F2FF79F68A3B637711BB1936E712B521D8CE466B29CBF7808A">>}]}

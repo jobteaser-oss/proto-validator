@@ -16,16 +16,35 @@
 
 -export([main/1]).
 
+-type options() :: list(option()).
+-type option() :: help
+                | {include, string()}
+                | verbose.
+
 -spec main(list(string())) -> no_return().
 main(Args) ->
+  %% Global options
   io:setopts([{encoding, unicode}]),
+  %% Command line
   CommandLineSpec = command_line_spec(),
   case getopt:parse(CommandLineSpec, Args) of
     {ok, {Options, ProtoFiles}} ->
+      %% Command line options
       put(verbose, proplists:is_defined(verbose, Options)),
-      info("using options ~p", [Options]),
-      info("processing proto files ~p", [ProtoFiles]),
-      erlang:halt(0);
+      Help = proplists:is_defined(help, Options),
+      if
+        Help == true ->
+          getopt:usage(CommandLineSpec, escript:script_name()),
+          erlang:halt(0);
+        true -> ok
+      end,
+      %% File validation
+      case validate_proto_files(ProtoFiles, Options) of
+        ok ->
+          erlang:halt(0);
+        {error, Reason} ->
+          die("error: ~p", [Reason])
+      end;
     {error, {Reason, Data}} ->
       io:format("error: ~s ~p~n~n", [Reason, Data]),
       getopt:usage(CommandLineSpec, escript:script_name()),
@@ -39,8 +58,52 @@ info(Format, Args) ->
     _ -> ok
   end.
 
+-spec die(string(), list(term())) -> no_return().
+die(Format, Args) ->
+  io:format(Format ++ "\n", Args),
+  erlang:halt(1).
+
 -spec command_line_spec() -> list(getopt:option_spec()).
 command_line_spec() ->
     [{help, $h, "help", undefined, "print help and exit"},
-     {include, $I, "include", string, "add an include path"},
+     {include_path, $I, "include", string, "add an include path"},
      {verbose, $v, "verbose", undefined, "enable processing logs"}].
+
+-spec validate_proto_files(Files, options()) -> ok | {error, Reason} when
+    Files :: list(string()),
+    Reason :: term().
+validate_proto_files(Files, Options) ->
+  info("using options ~p", [Options]),
+  info("validating proto files ~p", [Files]),
+  IncludePaths = proplists:get_all_values(include_path, Options),
+  GpbBaseOpts = [use_packages,
+                 to_proto_defs,
+                 ignore_wellknown_types_directory],
+  GpbIOptions = [{i, Path} || Path <- IncludePaths],
+  GpbOptions = GpbBaseOpts ++ GpbIOptions,
+  lists:foreach(fun (File) ->
+                    validate_proto_file(File, Options, GpbOptions)
+                end, Files).
+
+-spec validate_proto_file(File, options(), gpb:opts()) ->
+        ok | {error, Reason} when
+    File :: string(),
+    Reason :: term().
+validate_proto_file(File, Options, GpbOptions) ->
+  info("validating proto file ~p", [File]),
+  case gpb_compile:file(File, GpbOptions) of
+    {ok, Definitions} ->
+      validate_definitions(Definitions, Options);
+    {ok, Definitions, Warnings} ->
+      lists:foreach(fun (Warning) ->
+                        info("warning: ~p", [Warning])
+                    end, Warnings),
+      validate_definitions(Definitions, Options),
+      ok;
+    {error, Reason} ->
+      {error, {compile_error, Reason}}
+  end.
+
+-spec validate_definitions(gpb_defs:defs(), options()) -> ok | {error, reason}.
+validate_definitions(_Definitions, _Options) ->
+  ok.
