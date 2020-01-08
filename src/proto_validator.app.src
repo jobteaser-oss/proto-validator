@@ -1,6 +1,6 @@
 {application, proto_validator,
  [{description, "A program to check various aspects of Protobuf definitions."},
-  {vsn, "0.1.0"},
+  {vsn, "git"},
   {registered, []},
   {applications,
    [kernel,
