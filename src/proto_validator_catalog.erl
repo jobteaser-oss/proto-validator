@@ -12,15 +12,19 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
--module(proto_validator_proto).
+-module(proto_validator_catalog).
 
--export([enums/1, messages/1, services/1]).
+-export([catalog/1]).
 
 -export_type([name/0,
               enum/0, enums/0, member/0, members/0,
               message/0, messages/0, field/0, fields/0, occurrence/0,
               type/0,
               service/0, services/0, rpc/0, rpcs/0]).
+
+-type catalog() :: #{enums := enums(),
+                     messages := message(),
+                     services := service()}.
 
 -type name() :: unicode:chardata().
 
@@ -55,38 +59,25 @@
                 InputStream :: boolean(), OutputStream :: boolean()}.
 -type rpcs() :: list(rpc()).
 
--spec enums(gpb_defs:defs()) -> enums().
-enums(Defs) ->
-  lists:filtermap(fun (Def) ->
-                      case Def of
-                        {{enum, _}, _} ->
-                          {true, extract_enum(Def)};
-                        _ ->
-                          false
-                      end
-                  end, Defs).
+-spec catalog(gpb_defs:defs()) -> catalog().
+catalog(Defs) ->
+  lists:foldl(fun update_catalog/2, empty_catalog(), Defs).
 
--spec messages(gpb_defs:defs()) -> messages().
-messages(Defs) ->
-  lists:filtermap(fun (Def) ->
-                      case Def of
-                        {{msg, _}, _} ->
-                          {true, extract_message(Def)};
-                        _ ->
-                          false
-                      end
-                  end, Defs).
+-spec update_catalog(gpb_defs:defs(), catalog()) -> catalog().
+update_catalog(Def = {{enum, _}, _}, Catalog = #{enums := Enums}) ->
+  Catalog#{enums => [extract_enum(Def) | Enums]};
+update_catalog(Def = {{msg, _}, _}, Catalog = #{messages := Messages}) ->
+  Catalog#{messages => [extract_message(Def) | Messages]};
+update_catalog(Def = {{service, _}, _}, Catalog = #{services := Services}) ->
+  Catalog#{services => [extract_service(Def) | Services]};
+update_catalog(Def, Catalog) ->
+  Catalog.
 
--spec services(gpb_defs:defs()) -> services().
-services(Defs) ->
-  lists:filtermap(fun (Def) ->
-                      case Def of
-                        {{service, _}, _} ->
-                          {true, extract_service(Def)};
-                        _ ->
-                          false
-                      end
-                  end, Defs).
+-spec empty_catalog() -> catalog().
+empty_catalog() ->
+  #{enums => [],
+    messages => [],
+    services => []}.
 
 -spec extract_name(atom()) -> name().
 extract_name(Name) when is_atom(Name) ->

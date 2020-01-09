@@ -123,5 +123,6 @@ validate_proto_file(File, Options, GpbOptions) ->
 
 -spec validate_definitions(gpb_defs:defs(), options()) -> ok | {error, reason}.
 validate_definitions(Definitions, _Options) ->
-  info("XXX DEFINITIONS: ~p", [Definitions]),
+  Catalog = proto_validator_catalog:catalog(Definitions),
+  info("XXX CATALOG ~n~p", [Catalog]),
   ok.

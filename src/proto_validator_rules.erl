@@ -18,35 +18,22 @@
 
 -type proto_object() :: service
                       | rpc
-                      | enum
-                      | member
                       | message
-                      | field
-                      | oneof.
+                      | field.
 
--type proto_type_name() :: string().
+-type value() :: string() | proto_validator_catalog:type().
+-type values() :: list(value()).
 
--type proto_type() :: {service, proto_type_name()}
-                    | {enum, proto_type_name()}
-                    | {message, proto_type_name()}
-                    | proto_type_name().
-
--type expr_value() :: string() | proto_type().
--type expr_values() :: list(expr_value()).
-
--type expr() :: {is, expr_value()}
-              | {is_not, expr_value()}
-              | {is_any_of, expr_values()}
-              | {is_none_of, expr_values()}
+-type expr() :: {is, value()}
+              | {is_not, value()}
+              | {is_any_of, values()}
+              | {is_none_of, values()}
               | {has_prefix, string()}
               | {has_suffix, string()}.
 
--type attribute() :: package
-                   | name
+-type attribute() :: name
                    | parent_service_name
                    | parent_message_name
-                   | parent_enum_name
-                   | parent_oneof_name
                    | type
                    | type_name
                    | input_type
@@ -62,6 +49,5 @@
 -type rule() :: {message(),
                  proto_object(),
                  predicates(),
-                 predicates(),
-                 message()}.
+                 predicates()}.
 -type rules() :: list(rule()).
