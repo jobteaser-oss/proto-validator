@@ -47,13 +47,8 @@ main(Args) ->
                    die("cannot load configuration: ~p", [ConfigErrReason])
                end,
       %% File validation
-      case validate_proto_files(ProtoFiles, Options) of
-        ok ->
-          erlang:halt(0);
-        {error, FileErrors} ->
-          %% TODO formatting
-          die("error: ~p", [FileErrors])
-      end;
+      Results = validate_proto_files(ProtoFiles, Options),
+      info("results: ~p", [Results]); % TODO formatting
     {error, {Reason, Data}} ->
       io:format("error: ~s ~p~n~n", [Reason, Data]),
       getopt:usage(CommandLineSpec, escript:script_name()),
@@ -90,11 +85,10 @@ load_config(Options) ->
       proto_validator_config:load(Path)
   end.
 
--spec validate_proto_files(Files, options()) -> ok | {error, FileErrors} when
+-spec validate_proto_files(Files, options()) -> list({File, Result}) when
     Files :: list(File),
-    FileErrors :: list({File, Reason}),
-    File :: string(),
-    Reason :: term().
+    File :: file:name_all(),
+    Result :: ok | {error, term()}.
 validate_proto_files(Files, Options) ->
   info("using options ~p", [Options]),
   info("validating proto files ~p", [Files]),
@@ -104,29 +98,13 @@ validate_proto_files(Files, Options) ->
                  ignore_wellknown_types_directory],
   GpbIOptions = [{i, Path} || Path <- IncludePaths],
   GpbOptions = GpbBaseOpts ++ GpbIOptions,
-  ReturnValues = lists:map(fun (File) ->
-                               Res = validate_proto_file(File, Options,
-                                                         GpbOptions),
-                               {File, Res}
-                           end, Files),
-  Errors = lists:filtermap(fun (Value) ->
-                               case Value of
-                                 {File, {error, Reason}} ->
-                                   {true, {File, Reason}};
-                                 _ ->
-                                   false
-                               end
-                           end, ReturnValues),
-  case Errors of
-    [] ->
-      ok;
-    _ ->
-      Errors
-  end.
+  lists:map(fun (File) ->
+                {File, validate_proto_file(File, Options, GpbOptions)}
+            end, Files).
 
 -spec validate_proto_file(File, options(), gpb:opts()) ->
         ok | {error, Reason} when
-    File :: string(),
+    File :: file:name_all(),
     Reason :: term().
 validate_proto_file(File, Options, GpbOptions) ->
   info("validating proto file ~p", [File]),
