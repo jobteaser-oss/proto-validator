@@ -14,12 +14,21 @@
 
 -module(proto_validator_proto).
 
--export([messages/1, services/1]).
+-export([enums/1, messages/1, services/1]).
 
--export_type([name/0, message/0, messages/0, field/0, fields/0, occurrence/0,
-              type/0, service/0, services/0, rpc/0, rpcs/0]).
+-export_type([name/0,
+              enum/0, enums/0, member/0, members/0,
+              message/0, messages/0, field/0, fields/0, occurrence/0,
+              type/0,
+              service/0, services/0, rpc/0, rpcs/0]).
 
 -type name() :: unicode:chardata().
+
+-type enum() :: {Package :: name(), name(), members()}.
+-type enums() :: list(enum()).
+
+-type member() :: name().
+-type members() :: list(members()).
 
 -type message() :: {Package :: name(), name(), fields()}.
 -type messages() :: list(message()).
@@ -45,6 +54,17 @@
                 InputType :: type(), OutputType :: type(),
                 InputStream :: boolean(), OutputStream :: boolean()}.
 -type rpcs() :: list(rpc()).
+
+-spec enums(gpb_defs:defs()) -> enums().
+enums(Defs) ->
+  lists:filtermap(fun (Def) ->
+                      case Def of
+                        {{enum, _}, _} ->
+                          {true, extract_enum(Def)};
+                        _ ->
+                          false
+                      end
+                  end, Defs).
 
 -spec messages(gpb_defs:defs()) -> messages().
 messages(Defs) ->
@@ -73,6 +93,15 @@ extract_name(Name) when is_atom(Name) ->
   atom_to_list(Name);
 extract_name(Name) ->
   error({invalid_name, Name}).
+
+-spec extract_enum(gpb_defs:def()) -> enum().
+extract_enum({{enum, Name}, Members}) ->
+  [Package, Name2] = split_full_name(extract_name(Name)),
+  {Package, Name2, lists:map(fun extract_member/1, Members)}.
+
+-spec extract_member({atom(), integer()}) -> member().
+extract_member({Name, _Value}) ->
+  extract_name(Name).
 
 -spec extract_message(gpb_defs:def()) -> message().
 extract_message({{msg, Name}, Fields}) ->
