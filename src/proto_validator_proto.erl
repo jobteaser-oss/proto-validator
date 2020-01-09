@@ -38,7 +38,7 @@
               | fixed32 | fixed64 | sfixed32 | sfixed64
               | bool | float | double | string | bytes.
 
--type service() :: {Package :: name(), rpcs()}.
+-type service() :: {Package :: name(), name(), rpcs()}.
 -type services() :: list(service()).
 
 -type rpc() :: {name(),
@@ -79,7 +79,7 @@ extract_message({{msg, Name}, Fields}) ->
   [Package, Name2] = split_full_name(extract_name(Name)),
   {Package, Name2, lists:map(fun extract_field/1, Fields)}.
 
--spec extract_field(gpb_defs:def()) -> field().
+-spec extract_field(term()) -> field().
 extract_field({gpb_oneof, Name, _, Fields}) ->
   {oneof, extract_name(Name), lists:map(fun extract_field/1, Fields)};
 extract_field({field, Name, _, _, Type, Occurrence, _Opts}) ->
@@ -100,7 +100,7 @@ extract_service({{service, Name}, RPCs}) ->
   [Package, Name2] = split_full_name(extract_name(Name)),
   {Package, Name2, lists:map(fun extract_rpc/1, RPCs)}.
 
--spec extract_rpc(gpb_defs:def()) -> rpc().
+-spec extract_rpc(term()) -> rpc().
 extract_rpc({rpc, Name, InputType, OutputType, InputStream, OutputStream, _}) ->
   {extract_name(Name), extract_type(InputType), extract_type(OutputType),
    InputStream, OutputStream}.
