@@ -29,8 +29,9 @@ main(Args) ->
   CommandLineSpec = command_line_spec(),
   case getopt:parse(CommandLineSpec, Args) of
     {ok, {Options, ProtoFiles}} ->
-      %% Command line options
+      %% Verbosity
       put(verbose, proplists:is_defined(verbose, Options)),
+      %% Help string
       Help = proplists:is_defined(help, Options),
       if
         Help == true ->
@@ -38,12 +39,19 @@ main(Args) ->
           erlang:halt(0);
         true -> ok
       end,
+      %% Configuration file
+      Config = case load_config(Options) of
+                 {ok, Config2} ->
+                   Config2;
+                 {error, ConfigErrReason} ->
+                   die("cannot load configuration: ~p", ConfigErrReason)
+               end,
       %% File validation
       case validate_proto_files(ProtoFiles, Options) of
         ok ->
           erlang:halt(0);
-        {error, Reason} ->
-          die("error: ~p", [Reason])
+        {error, ValidateErrReason} ->
+          die("error: ~p", [ValidateErrReason])
       end;
     {error, {Reason, Data}} ->
       io:format("error: ~s ~p~n~n", [Reason, Data]),
@@ -66,8 +74,20 @@ die(Format, Args) ->
 -spec command_line_spec() -> list(getopt:option_spec()).
 command_line_spec() ->
     [{help, $h, "help", undefined, "print help and exit"},
+     {config, $c, "config", string, "set the configuration file"},
      {include_path, $I, "include", string, "add an include path"},
      {verbose, $v, "verbose", undefined, "enable processing logs"}].
+
+-spec load_config(options()) -> {ok, Config} | {error, Reason} when
+    Config :: proto_validator_config:config(),
+    Reason :: term().
+load_config(Options) ->
+  case proplists:get_value(config, Options) of
+    undefined ->
+      {ok, proto_validator_config:default_config()};
+    Path ->
+      proto_validator_config:load(Path)
+  end.
 
 -spec validate_proto_files(Files, options()) -> ok | {error, Reason} when
     Files :: list(string()),
@@ -105,5 +125,6 @@ validate_proto_file(File, Options, GpbOptions) ->
   end.
 
 -spec validate_definitions(gpb_defs:defs(), options()) -> ok | {error, reason}.
-validate_definitions(_Definitions, _Options) ->
+validate_definitions(Definitions, _Options) ->
+  info("XXX DEFINITIONS: ~p", [Definitions]),
   ok.
