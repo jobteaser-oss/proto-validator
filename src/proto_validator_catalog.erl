@@ -23,8 +23,8 @@
               service/0, services/0, rpc/0, rpcs/0]).
 
 -type catalog() :: #{enums := enums(),
-                     messages := message(),
-                     services := service()}.
+                     messages := messages(),
+                     services := services()}.
 
 -type name() :: unicode:chardata().
 
@@ -51,7 +51,7 @@
               | fixed32 | fixed64 | sfixed32 | sfixed64
               | bool | float | double | string | bytes.
 
--type service() :: {name(), name(), rpcs()}.
+-type service() :: {name(), rpcs()}.
 -type services() :: list(service()).
 
 -type rpc() :: {name(),
@@ -70,7 +70,7 @@ update_catalog(Def = {{msg, _}, _}, Catalog = #{messages := Messages}) ->
   Catalog#{messages => [extract_message(Def) | Messages]};
 update_catalog(Def = {{service, _}, _}, Catalog = #{services := Services}) ->
   Catalog#{services => [extract_service(Def) | Services]};
-update_catalog(Def, Catalog) ->
+update_catalog(_, Catalog) ->
   Catalog.
 
 -spec empty_catalog() -> catalog().
@@ -122,7 +122,9 @@ extract_service({{service, Name}, RPCs}) ->
 
 -spec extract_rpc(term()) -> rpc().
 extract_rpc({rpc, Name, InputType, OutputType, InputStream, OutputStream, _}) ->
-  {extract_name(Name), extract_type(InputType), extract_type(OutputType),
+  {extract_name(Name),
+   {message, extract_name(InputType)},
+   {message, extract_name(OutputType)},
    InputStream, OutputStream}.
 
 -spec full_name_to_element_name(name()) -> name().
