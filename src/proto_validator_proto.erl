@@ -24,13 +24,13 @@
 
 -type name() :: unicode:chardata().
 
--type enum() :: {Package :: name(), name(), members()}.
+-type enum() :: {name(), members()}.
 -type enums() :: list(enum()).
 
 -type member() :: name().
 -type members() :: list(members()).
 
--type message() :: {Package :: name(), name(), fields()}.
+-type message() :: {name(), fields()}.
 -type messages() :: list(message()).
 
 -type field() :: {field, name(), type(), occurrence()}
@@ -47,7 +47,7 @@
               | fixed32 | fixed64 | sfixed32 | sfixed64
               | bool | float | double | string | bytes.
 
--type service() :: {Package :: name(), name(), rpcs()}.
+-type service() :: {name(), name(), rpcs()}.
 -type services() :: list(service()).
 
 -type rpc() :: {name(),
@@ -96,8 +96,8 @@ extract_name(Name) ->
 
 -spec extract_enum(gpb_defs:def()) -> enum().
 extract_enum({{enum, Name}, Members}) ->
-  [Package, Name2] = split_full_name(extract_name(Name)),
-  {Package, Name2, lists:map(fun extract_member/1, Members)}.
+  Name2 = full_name_to_element_name(extract_name(Name)),
+  {Name2, lists:map(fun extract_member/1, Members)}.
 
 -spec extract_member({atom(), integer()}) -> member().
 extract_member({Name, _Value}) ->
@@ -105,8 +105,8 @@ extract_member({Name, _Value}) ->
 
 -spec extract_message(gpb_defs:def()) -> message().
 extract_message({{msg, Name}, Fields}) ->
-  [Package, Name2] = split_full_name(extract_name(Name)),
-  {Package, Name2, lists:map(fun extract_field/1, Fields)}.
+  Name2 = full_name_to_element_name(extract_name(Name)),
+  {Name2, lists:map(fun extract_field/1, Fields)}.
 
 -spec extract_field(term()) -> field().
 extract_field({gpb_oneof, Name, _, Fields}) ->
@@ -126,14 +126,15 @@ extract_type({map, Key, Value}) ->
 
 -spec extract_service(gpb_defs:def()) -> service().
 extract_service({{service, Name}, RPCs}) ->
-  [Package, Name2] = split_full_name(extract_name(Name)),
-  {Package, Name2, lists:map(fun extract_rpc/1, RPCs)}.
+  Name2 = full_name_to_element_name(extract_name(Name)),
+  {Name2, lists:map(fun extract_rpc/1, RPCs)}.
 
 -spec extract_rpc(term()) -> rpc().
 extract_rpc({rpc, Name, InputType, OutputType, InputStream, OutputStream, _}) ->
   {extract_name(Name), extract_type(InputType), extract_type(OutputType),
    InputStream, OutputStream}.
 
--spec split_full_name(name()) -> list(name()).
-split_full_name(Name) ->
-  string:split(Name, ".", trailing).
+-spec full_name_to_element_name(name()) -> name().
+full_name_to_element_name(FullName) ->
+  [_, Name] = string:split(FullName, ".", trailing),
+  Name.
