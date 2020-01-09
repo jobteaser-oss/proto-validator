@@ -44,7 +44,7 @@ main(Args) ->
                  {ok, Config2} ->
                    Config2;
                  {error, ConfigErrReason} ->
-                   die("cannot load configuration: ~p", ConfigErrReason)
+                   die("cannot load configuration: ~p", [ConfigErrReason])
                end,
       %% File validation
       case validate_proto_files(ProtoFiles, Options) of
