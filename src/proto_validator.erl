@@ -50,8 +50,9 @@ main(Args) ->
       case validate_proto_files(ProtoFiles, Options) of
         ok ->
           erlang:halt(0);
-        {error, ValidateErrReason} ->
-          die("error: ~p", [ValidateErrReason])
+        {error, FileErrors} ->
+          %% TODO formatting
+          die("error: ~p", [FileErrors])
       end;
     {error, {Reason, Data}} ->
       io:format("error: ~s ~p~n~n", [Reason, Data]),
@@ -89,8 +90,10 @@ load_config(Options) ->
       proto_validator_config:load(Path)
   end.
 
--spec validate_proto_files(Files, options()) -> ok | {error, Reason} when
-    Files :: list(string()),
+-spec validate_proto_files(Files, options()) -> ok | {error, FileErrors} when
+    Files :: list(File),
+    FileErrors :: list({File, Reason}),
+    File :: string(),
     Reason :: term().
 validate_proto_files(Files, Options) ->
   info("using options ~p", [Options]),
@@ -101,9 +104,25 @@ validate_proto_files(Files, Options) ->
                  ignore_wellknown_types_directory],
   GpbIOptions = [{i, Path} || Path <- IncludePaths],
   GpbOptions = GpbBaseOpts ++ GpbIOptions,
-  lists:foreach(fun (File) ->
-                    validate_proto_file(File, Options, GpbOptions)
-                end, Files).
+  ReturnValues = lists:map(fun (File) ->
+                               Res = validate_proto_file(File, Options,
+                                                         GpbOptions),
+                               {File, Res}
+                           end, Files),
+  Errors = lists:filtermap(fun (Value) ->
+                               case Value of
+                                 {File, {error, Reason}} ->
+                                   {true, {File, Reason}};
+                                 _ ->
+                                   false
+                               end
+                           end, ReturnValues),
+  case Errors of
+    [] ->
+      ok;
+    _ ->
+      Errors
+  end.
 
 -spec validate_proto_file(File, options(), gpb:opts()) ->
         ok | {error, Reason} when
