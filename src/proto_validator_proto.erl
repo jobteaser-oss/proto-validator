@@ -14,10 +14,10 @@
 
 -module(proto_validator_proto).
 
--export([messages/1]).
+-export([messages/1, services/1]).
 
 -export_type([name/0, message/0, messages/0, field/0, fields/0, occurrence/0,
-              type/0]).
+              type/0, service/0, services/0, rpc/0, rpcs/0]).
 
 -type name() :: string().
 
@@ -38,6 +38,14 @@
               | fixed32 | fixed64 | sfixed32 | sfixed64
               | bool | float | double | string | bytes.
 
+-type service() :: {name(), rpcs()}.
+-type services() :: list(service()).
+
+-type rpc() :: {name(),
+                InputType :: type(), OutputType :: type(),
+                InputStream :: boolean(), OutputStream :: boolean()}.
+-type rpcs() :: list(rpc()).
+
 -spec messages(gpb_defs:defs()) -> messages().
 messages(Defs) ->
   lists:filtermap(fun (Def) ->
@@ -48,6 +56,23 @@ messages(Defs) ->
                           false
                       end
                   end, Defs).
+
+-spec services(gpb_defs:defs()) -> services().
+services(Defs) ->
+  lists:filtermap(fun (Def) ->
+                      case Def of
+                        {{service, _}, _} ->
+                          {true, extract_service(Def)};
+                        _ ->
+                          false
+                      end
+                  end, Defs).
+
+-spec extract_name(atom()) -> string().
+extract_name(Name) when is_atom(Name) ->
+  atom_to_list(Name);
+extract_name(Name) ->
+  error({invalid_name, Name}).
 
 -spec extract_message(gpb_defs:def()) -> message().
 extract_message({{msg, Name}, Fields}) ->
@@ -75,8 +100,15 @@ extract_type({map, Key, Value}) ->
 extract_type(Def) ->
   error({invalid_type_def, Def}).
 
--spec extract_name(atom()) -> string().
-extract_name(Name) when is_atom(Name) ->
-  atom_to_list(Name);
-extract_name(Name) ->
-  error({invalid_name, Name}).
+-spec extract_service(gpb_defs:def()) -> service().
+extract_service({{service, Name}, RPCs}) ->
+  {atom_to_list(Name), lists:map(fun extract_rpc/1, RPCs)};
+extract_service(Def) ->
+  error({invalid_service_def, Def}).
+
+-spec extract_rpc(gpb_defs:def()) -> rpc().
+extract_rpc({rpc, Name, InputType, OutputType, InputStream, OutputStream, _}) ->
+  {atom_to_list(Name), extract_type(InputType), extract_type(OutputType),
+   InputStream, OutputStream};
+extract_rpc(Def) ->
+  error({invalid_rpc_def, Def}).
