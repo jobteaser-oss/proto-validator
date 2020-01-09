@@ -50,7 +50,7 @@ main(Args) ->
       Results = validate_proto_files(ProtoFiles, Options),
       info("results: ~p", [Results]); % TODO formatting
     {error, {Reason, Data}} ->
-      io:format("error: ~s ~p~n~n", [Reason, Data]),
+      io:format(standard_error, "error: ~s ~p~n~n", [Reason, Data]),
       getopt:usage(CommandLineSpec, escript:script_name()),
       erlang:halt(1)
   end.
@@ -64,7 +64,7 @@ info(Format, Args) ->
 
 -spec die(string(), list(term())) -> no_return().
 die(Format, Args) ->
-  io:format(Format ++ "\n", Args),
+  io:format(standard_error, Format ++ "\n", Args),
   erlang:halt(1).
 
 -spec command_line_spec() -> list(getopt:option_spec()).
