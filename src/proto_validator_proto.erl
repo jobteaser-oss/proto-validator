@@ -19,9 +19,9 @@
 -export_type([name/0, message/0, messages/0, field/0, fields/0, occurrence/0,
               type/0, service/0, services/0, rpc/0, rpcs/0]).
 
--type name() :: string().
+-type name() :: unicode:chardata().
 
--type message() :: {name(), fields()}.
+-type message() :: {Package :: name(), name(), fields()}.
 -type messages() :: list(message()).
 
 -type field() :: {field, name(), type(), occurrence()}
@@ -38,7 +38,7 @@
               | fixed32 | fixed64 | sfixed32 | sfixed64
               | bool | float | double | string | bytes.
 
--type service() :: {name(), rpcs()}.
+-type service() :: {Package :: name(), rpcs()}.
 -type services() :: list(service()).
 
 -type rpc() :: {name(),
@@ -68,7 +68,7 @@ services(Defs) ->
                       end
                   end, Defs).
 
--spec extract_name(atom()) -> string().
+-spec extract_name(atom()) -> name().
 extract_name(Name) when is_atom(Name) ->
   atom_to_list(Name);
 extract_name(Name) ->
@@ -76,17 +76,14 @@ extract_name(Name) ->
 
 -spec extract_message(gpb_defs:def()) -> message().
 extract_message({{msg, Name}, Fields}) ->
-  {atom_to_list(Name), lists:map(fun extract_field/1, Fields)};
-extract_message(Def) ->
-  error({invalid_message_def, Def}).
+  [Package, Name2] = split_full_name(extract_name(Name)),
+  {Package, Name2, lists:map(fun extract_field/1, Fields)}.
 
 -spec extract_field(gpb_defs:def()) -> field().
 extract_field({gpb_oneof, Name, _, Fields}) ->
   {oneof, extract_name(Name), lists:map(fun extract_field/1, Fields)};
 extract_field({field, Name, _, _, Type, Occurrence, _Opts}) ->
-  {field, extract_name(Name), extract_type(Type), Occurrence};
-extract_field(Def) ->
-  error({invalid_field_def, Def}).
+  {field, extract_name(Name), extract_type(Type), Occurrence}.
 
 -spec extract_type(term()) -> type().
 extract_type(Type) when is_atom(Type) ->
@@ -96,19 +93,18 @@ extract_type({enum, Name}) ->
 extract_type({msg, Name}) ->
   {message, extract_name(Name)};
 extract_type({map, Key, Value}) ->
-  {map, extract_type(Key), extract_type(Value)};
-extract_type(Def) ->
-  error({invalid_type_def, Def}).
+  {map, extract_type(Key), extract_type(Value)}.
 
 -spec extract_service(gpb_defs:def()) -> service().
 extract_service({{service, Name}, RPCs}) ->
-  {atom_to_list(Name), lists:map(fun extract_rpc/1, RPCs)};
-extract_service(Def) ->
-  error({invalid_service_def, Def}).
+  [Package, Name2] = split_full_name(extract_name(Name)),
+  {Package, Name2, lists:map(fun extract_rpc/1, RPCs)}.
 
 -spec extract_rpc(gpb_defs:def()) -> rpc().
 extract_rpc({rpc, Name, InputType, OutputType, InputStream, OutputStream, _}) ->
-  {atom_to_list(Name), extract_type(InputType), extract_type(OutputType),
-   InputStream, OutputStream};
-extract_rpc(Def) ->
-  error({invalid_rpc_def, Def}).
+  {extract_name(Name), extract_type(InputType), extract_type(OutputType),
+   InputStream, OutputStream}.
+
+-spec split_full_name(name()) -> list(name()).
+split_full_name(Name) ->
+  string:split(Name, ".", trailing).
