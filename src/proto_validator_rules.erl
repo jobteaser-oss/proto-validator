@@ -54,14 +54,14 @@
                    | output_type
                    | output_type_name.
 
--type test() :: {attribute(), expr()}.
--type tests() :: list(test()).
+-type predicate() :: {attribute(), expr()}.
+-type predicates() :: list(predicate()).
 
 -type message() :: string().
 
 -type rule() :: {message(),
                  proto_object(),
-                 tests(),
-                 tests(),
+                 predicates(),
+                 predicates(),
                  message()}.
 -type rules() :: list(rule()).
