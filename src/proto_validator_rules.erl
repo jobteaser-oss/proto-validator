@@ -15,7 +15,7 @@
 -module(proto_validator_rules).
 
 -export([collect_objects_data/1,
-         evaluate_predicate/2, evaluate_expression/2]).
+         evaluate_rule/2, evaluate_predicate/2, evaluate_expression/2]).
 
 -export_type([rules/0]).
 
@@ -44,10 +44,7 @@
                    | output_type_name.
 
 -type object_data() :: #{attribute() => value()}.
--type objects_data() :: #{messages := list(object_data()),
-                          fields := list(object_data()),
-                          services := list(object_data()),
-                          rpcs := list(object_data())}.
+-type objects_data() :: #{object() => list(object_data())}.
 
 -type predicate() :: {attribute(), expression()}.
 -type predicates() :: list(predicate()).
@@ -64,13 +61,13 @@
     Catalog :: proto_validator_catalog:catalog().
 collect_objects_data(#{messages := Messages,
                        services := Services}) ->
-  #{messages =>
+  #{message =>
       lists:map(fun collect_message_data/1, Messages),
-    fields =>
+    field =>
       lists:flatten(lists:map(fun collect_message_fields_data/1, Messages)),
-    services =>
+    service =>
       lists:map(fun collect_service_data/1, Services),
-    rpcs =>
+    rpc =>
       lists:flatten(lists:map(fun collect_service_rpcs_data/1, Services))}.
 
 -spec collect_message_data(proto_validator_catalog:message()) -> object_data().
@@ -111,6 +108,34 @@ collect_service_rpcs_data({ServiceName, RPCs}) ->
                   output_type => OutputType,
                   output_type_name => OutputTypeName}
             end, RPCs).
+
+-spec matching_object_data(predicates(), list(object_data())) ->
+        list(object_data()).
+matching_object_data(Predicates, DataList) ->
+  lists:filter(fun (Data) ->
+                   lists:all(fun (Predicate) ->
+                                 evaluate_predicate(Predicate, Data)
+                             end, Predicates)
+               end, DataList).
+
+-spec evaluate_rule(rule(), objects_data()) -> ok | {error, term()}.
+evaluate_rule({Msg, Object, Conditions, Tests}, ObjectsData) ->
+  %% Find the list of data sets for this object
+  DataList = maps:get(Object, ObjectsData, []),
+  %% Only keep data sets which match all conditions
+  MatchingDataList = matching_object_data(Conditions, DataList),
+  %% Evaluate all tests for each object data set and collect errors
+  Cases = [{Test, Data} || Test <- Tests, Data <- MatchingDataList],
+  Results = lists:map(
+             fun ({Test, Data}) ->
+                 case evaluate_predicate(Test, Data) of
+                   true ->
+                     ok;
+                   false ->
+                     {error, {test_failure, Test, {Object, Data}, Msg}}
+                 end
+             end, Cases),
+  proto_validator_utils:aggregate_results(Results).
 
 -spec evaluate_predicate(predicate(), object_data()) -> boolean().
 evaluate_predicate({Attribute, Expression}, Data) ->

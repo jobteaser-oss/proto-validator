@@ -47,7 +47,7 @@ main(Args) ->
                    die("cannot load configuration: ~p", [ConfigErrReason])
                end,
       %% File validation
-      Results = validate_proto_files(ProtoFiles, Options),
+      Results = validate_proto_files(ProtoFiles, Config, Options),
       info("results: ~p", [Results]); % TODO formatting
     {error, {Reason, Data}} ->
       io:format(standard_error, "error: ~s ~p~n~n", [Reason, Data]),
@@ -85,11 +85,13 @@ load_config(Options) ->
       proto_validator_config:load(Path)
   end.
 
--spec validate_proto_files(Files, options()) -> list({File, Result}) when
+-spec validate_proto_files(Files, Config, options()) ->
+        list({File, Result}) when
     Files :: list(File),
     File :: file:name_all(),
+    Config :: proto_validator_config:config(),
     Result :: ok | {error, term()}.
-validate_proto_files(Files, Options) ->
+validate_proto_files(Files, Config, Options) ->
   info("using options ~p", [Options]),
   info("validating proto files ~p", [Files]),
   IncludePaths = proplists:get_all_values(include_path, Options),
@@ -99,32 +101,45 @@ validate_proto_files(Files, Options) ->
   GpbIOptions = [{i, Path} || Path <- IncludePaths],
   GpbOptions = GpbBaseOpts ++ GpbIOptions,
   lists:map(fun (File) ->
-                {File, validate_proto_file(File, Options, GpbOptions)}
+                {File, validate_proto_file(File, Config, Options, GpbOptions)}
             end, Files).
 
--spec validate_proto_file(File, options(), gpb:opts()) ->
+-spec validate_proto_file(File, Config, options(), gpb:opts()) ->
         ok | {error, Reason} when
     File :: file:name_all(),
+    Config :: proto_validator_config:config(),
     Reason :: term().
-validate_proto_file(File, Options, GpbOptions) ->
+validate_proto_file(File, Config, _Options, GpbOptions) ->
   info("validating proto file ~p", [File]),
   case gpb_compile:file(File, GpbOptions) of
     {ok, Definitions} ->
-      validate_definitions(Definitions, Options);
+      validate_definitions(Definitions, Config);
     {ok, Definitions, Warnings} ->
       lists:foreach(fun (Warning) ->
                         info("warning: ~p", [Warning])
                     end, Warnings),
-      validate_definitions(Definitions, Options),
-      ok;
+      validate_definitions(Definitions, Config);
     {error, Reason} ->
       {error, {compile_error, Reason}}
   end.
 
--spec validate_definitions(gpb_defs:defs(), options()) -> ok | {error, reason}.
-validate_definitions(Definitions, _Options) ->
+-spec validate_definitions(gpb_defs:defs(), Config) -> ok | {error, reason} when
+    Config :: proto_validator_config:config().
+validate_definitions(Definitions, Config) ->
   Catalog = proto_validator_catalog:catalog(Definitions),
   ObjectsData = proto_validator_rules:collect_objects_data(Catalog),
-  info("XXX CATALOG ~n~p", [Catalog]),
-  info("XXX OBJECTS DATA ~n~p", [ObjectsData]),
-  ok.
+  Rules = proto_validator_config:rules(Config),
+  RuleFun = fun (Rule) ->
+                case proto_validator_rules:evaluate_rule(Rule, ObjectsData) of
+                  ok ->
+                    false;
+                  {error, RuleErrors} ->
+                    {true, RuleErrors}
+                end
+            end,
+  case lists:flatten(lists:filtermap(RuleFun, Rules)) of
+    [] ->
+      ok;
+    Errors ->
+      {error, Errors}
+  end.

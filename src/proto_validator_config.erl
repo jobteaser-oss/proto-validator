@@ -14,7 +14,7 @@
 
 -module(proto_validator_config).
 
--export([default_config/0, load/1]).
+-export([default_config/0, load/1, rules/1]).
 
 -type config() :: list(config_entry()).
 
@@ -27,3 +27,7 @@ default_config() ->
 -spec load(file:name_all()) -> {ok, config()} | {error, term()}.
 load(Path) ->
   file:consult(Path).
+
+-spec rules(config()) -> proto_validator_rules:rules().
+rules(Config) ->
+  lists:flatten(proplists:get_all_values(rules, Config)).
