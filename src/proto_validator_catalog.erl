@@ -26,7 +26,7 @@
                      messages := messages(),
                      services := services()}.
 
--type name() :: unicode:chardata().
+-type name() :: string().
 
 -type enum() :: {name(), members()}.
 -type enums() :: list(enum()).
