@@ -14,7 +14,8 @@
 
 -module(proto_validator_rules).
 
--export([collect_objects_data/1]).
+-export([collect_objects_data/1,
+         evaluate_predicate/2, evaluate_expression/2]).
 
 -export_type([rules/0]).
 
@@ -26,12 +27,12 @@
 -type value() :: string() | proto_validator_catalog:type().
 -type values() :: list(value()).
 
--type expr() :: {is, value()}
-              | {is_not, value()}
-              | {is_any_of, values()}
-              | {is_none_of, values()}
-              | {has_prefix, string()}
-              | {has_suffix, string()}.
+-type expression() :: {is, value()}
+                    | {is_not, value()}
+                    | {is_any_of, values()}
+                    | {is_none_of, values()}
+                    | {has_prefix, string()}
+                    | {has_suffix, string()}.
 
 -type attribute() :: name
                    | parent_service_name
@@ -48,7 +49,7 @@
                           services := list(object_data()),
                           rpcs := list(object_data())}.
 
--type predicate() :: {attribute(), expr()}.
+-type predicate() :: {attribute(), expression()}.
 -type predicates() :: list(predicate()).
 
 -type message() :: string().
@@ -110,3 +111,40 @@ collect_service_rpcs_data({ServiceName, RPCs}) ->
                   output_type => OutputType,
                   output_type_name => OutputTypeName}
             end, RPCs).
+
+-spec evaluate_predicate(predicate(), object_data()) -> boolean().
+evaluate_predicate({Attribute, Expression}, Data) ->
+  case maps:get(Attribute, Data, undefined) of
+    undefined ->
+      false;
+    Value ->
+      evaluate_expression(Expression, Value)
+  end.
+
+-spec evaluate_expression(expression(), value()) -> boolean().
+evaluate_expression({is, Value}, ObjValue) ->
+  value_equal(Value, ObjValue);
+evaluate_expression({is_not, Value}, ObjValue) ->
+  not(evaluate_expression({is, Value}, ObjValue));
+evaluate_expression({is_any_of, Values}, ObjValue) ->
+  lists:any(fun (Value) ->
+                evaluate_expression({is, Value}, ObjValue)
+            end, Values);
+evaluate_expression({is_none_of, Values}, ObjValue) ->
+  lists:all(fun (Value) ->
+                evaluate_expression({is_not, Value}, ObjValue)
+            end, Values);
+evaluate_expression({has_prefix, Value}, ObjValue) ->
+  lists:prefix(Value, ObjValue);
+evaluate_expression({has_suffix, Value}, ObjValue) ->
+  lists:suffix(Value, ObjValue).
+
+-spec value_equal(value(), value()) -> boolean().
+value_equal(V1, V2) when is_list(V1) andalso is_list(V2) ->
+  V1 == V2;
+value_equal(V1, V2) when is_atom(V1) andalso is_atom(V2) ->
+  V1 == V2;
+value_equal(V1, V2) when is_tuple(V1) andalso is_tuple(V2) ->
+  proto_validator_catalog:type_equal(V1, V2);
+value_equal(_, _) ->
+  false.
