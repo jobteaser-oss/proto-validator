@@ -188,8 +188,25 @@ report_validation_error(File, Reason) ->
   log_error("~s: ~s", [File, ReasonString]).
 
 -spec format_error_reason(term()) -> iolist().
-format_error_reason({test_failure, _Test, {Object, Data}, Message}) ->
-  ObjectName = maps:get(name, Data),
-  io_lib:format("invalid ~p ~p: ~s", [Object, ObjectName, Message]);
+format_error_reason(Reason = {test_failure, _, _, _}) ->
+  format_test_failure(Reason);
 format_error_reason(Reason) ->
   io_lib:format("~p", [Reason]).
+
+-spec format_test_failure(proto_validator_rules:test_failure()) -> string().
+format_test_failure({test_failure, _Test, {message, Data}, Message}) ->
+  MessageName = maps:get(name, Data),
+  io_lib:format("invalid message ~p: ~s", [MessageName, Message]);
+format_test_failure({test_failure, _Test, {field, Data}, Message}) ->
+  FieldName = maps:get(name, Data),
+  MessageName = maps:get(parent_message_name, Data),
+  io_lib:format("invalid field ~p in message ~p: ~s",
+                [FieldName, MessageName, Message]);
+format_test_failure({test_failure, _Test, {service, Data}, Message}) ->
+  ServiceName = maps:get(name, Data),
+  io_lib:format("invalid service ~p: ~s", [ServiceName, Message]);
+format_test_failure({test_failure, _Test, {rpc, Data}, Message}) ->
+  RPCName = maps:get(name, Data),
+  ServiceName = maps:get(parent_service_name, Data),
+  io_lib:format("invalid rpc ~p in service ~p: ~s",
+                [RPCName, ServiceName, Message]).
