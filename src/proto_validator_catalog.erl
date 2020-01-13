@@ -14,7 +14,8 @@
 
 -module(proto_validator_catalog).
 
--export([catalog/1]).
+-export([catalog/1,
+         type_equal/2]).
 
 -export_type([name/0,
               enum/0, enums/0, member/0, members/0,
@@ -131,3 +132,9 @@ extract_rpc({rpc, Name, InputType, OutputType, InputStream, OutputStream, _}) ->
 full_name_to_element_name(FullName) ->
   [_, Name] = string:split(FullName, ".", trailing),
   Name.
+
+-spec type_equal(type(), type()) -> boolean().
+type_equal(T1, T2) when T1 =:= T2 ->
+  true;
+type_equal(_, _) ->
+  false.
