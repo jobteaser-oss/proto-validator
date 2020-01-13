@@ -15,7 +15,8 @@
 -module(proto_validator_catalog).
 
 -export([catalog/1,
-         type_equal/2]).
+         type_equal/2,
+         validate_type/1]).
 
 -export_type([name/0,
               enum/0, enums/0, member/0, members/0,
@@ -138,3 +139,27 @@ type_equal(T1, T2) when T1 =:= T2 ->
   true;
 type_equal(_, _) ->
   false.
+
+-spec validate_type(type()) -> ok | no_return().
+validate_type({service, Name}) ->
+  io_lib:printable_unicode_list(Name)
+    orelse error({validation_error, invalid_service_name, Name}),
+  ok;
+validate_type({enum, Name}) ->
+  io_lib:printable_unicode_list(Name)
+    orelse error({validation_error, invalid_enum_name, Name}),
+  ok;
+validate_type({message, Name}) ->
+  io_lib:printable_unicode_list(Name)
+    orelse error({validation_error, invalid_message_name, Name}),
+  ok;
+validate_type({map, KeyType, ValueType}) ->
+  validate_type(KeyType),
+  validate_type(ValueType);
+validate_type(Type) when is_atom(Type) ->
+  lists:member(Type, [int32, int64, uint32, uint64, sint32, sint64,
+                     fixed32, fixed64, sfixed32, sfixed64,
+                     bool, float, double, string, bytes])
+    orelse error({validation_error, invalid_type, Type});
+validate_type(Type) ->
+  error({validation_error, invalid_type, Type}).

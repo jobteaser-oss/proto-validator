@@ -15,9 +15,11 @@
 -module(proto_validator_rules).
 
 -export([collect_objects_data/1,
-         evaluate_rule/2, evaluate_predicate/2, evaluate_expression/2]).
+         evaluate_rule/2, evaluate_predicate/2, evaluate_expression/2,
+         validate_rules/1, validate_rule/1,
+         validate_predicates/1, validate_predicate/1]).
 
--export_type([rules/0]).
+-export_type([rules/0, test_failure/0]).
 
 -type object() :: message
                 | field
@@ -56,6 +58,9 @@
                  predicates(),
                  predicates()}.
 -type rules() :: list(rule()).
+
+-type test_failure() :: {test_failure, predicate(), {object(), object_data()},
+                         message()}.
 
 -spec collect_objects_data(Catalog) -> objects_data() when
     Catalog :: proto_validator_catalog:catalog().
@@ -173,3 +178,78 @@ value_equal(V1, V2) when is_tuple(V1) andalso is_tuple(V2) ->
   proto_validator_catalog:type_equal(V1, V2);
 value_equal(_, _) ->
   false.
+
+-spec validate_rules(rules()) -> ok | no_return().
+validate_rules(Rules) ->
+  lists:foreach(fun validate_rule/1, Rules),
+  ok.
+
+-spec validate_rule(rule()) -> ok | no_return().
+validate_rule({Message, Object, Conditions, Tests}) ->
+  try
+    io_lib:printable_unicode_list(Message)
+      orelse error({validation_error, invalid_message, Message}),
+    lists:member(Object, [message, field, service, rpc])
+      orelse error({validation_error, invalid_object, Object}),
+    validate_predicates(Conditions),
+    validate_predicates(Tests)
+  catch error:{validation_error, Error} ->
+      error({validation_error, {invalid_rule, Message}, Error})
+  end;
+validate_rule(Rule) ->
+  error({validation_error, invalid_rule, Rule}).
+
+-spec validate_predicates(predicates()) -> ok | no_return().
+validate_predicates(Predicates) ->
+  lists:foreach(fun validate_predicate/1, Predicates),
+  ok.
+
+-spec validate_predicate(predicate()) -> ok | no_return().
+validate_predicate({Attribute, Expression}) ->
+  lists:member(Attribute, [name,
+                           parent_service_name,
+                           parent_message_name,
+                           type,
+                           input_type,
+                           input_type_name,
+                           output_type,
+                           output_type_name])
+    orelse error({validation_error, invalid_attribute, Attribute}),
+  validate_expression(Expression);
+validate_predicate(Predicate) ->
+  error({validation_error, invalid_predicate, Predicate}).
+
+-spec validate_expression(expression()) -> ok | no_return().
+validate_expression({is, Value}) ->
+  validate_value(Value);
+validate_expression({is_not, Value}) ->
+  validate_value(Value);
+validate_expression({is_any_of, Values}) ->
+  validate_values(Values);
+validate_expression({is_none_of, Values}) ->
+  validate_values(Values);
+validate_expression({has_prefix, String}) ->
+  io_lib:printable_unicode_list(String)
+    orelse error({validation_error, invalid_prefix, String}),
+  ok;
+validate_expression({has_suffix, String}) ->
+  io_lib:printable_unicode_list(String)
+    orelse error({validation_error, invalid_suffix, String}),
+  ok;
+validate_expression(Expression) ->
+  error({validation_error, invalid_expression, Expression}).
+
+-spec validate_values(values()) -> ok | no_return().
+validate_values(Values) ->
+  lists:foreach(fun validate_value/1, Values),
+  ok.
+
+-spec validate_value(value()) -> ok | no_return().
+validate_value(Value) when is_tuple(Value) orelse is_atom(Value) ->
+  proto_validator_catalog:validate_type(Value);
+validate_value(String) when is_list(String) ->
+  io_lib:printable_unicode_list(String)
+    orelse error({validation_error, invalid_value, String}),
+  ok;
+validate_value(Value) ->
+  error({validation_error, invalid_value, Value}).

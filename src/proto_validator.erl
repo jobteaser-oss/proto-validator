@@ -58,7 +58,8 @@ main_validate(Options, Files) ->
              {ok, Config2} ->
                Config2;
              {error, ConfigErrReason} ->
-               die("cannot load configuration: ~p", [ConfigErrReason])
+               ConfigErrString = format_error_reason(ConfigErrReason),
+               die("cannot load configuration: ~s", [ConfigErrString])
            end,
   %% File validation
   Results = validate_proto_files(Files, Config, Options),
@@ -105,7 +106,17 @@ load_config(Options) ->
     undefined ->
       {ok, proto_validator_config:default_config()};
     Path ->
-      proto_validator_config:load(Path)
+      case proto_validator_config:load(Path) of
+        {ok, Config} ->
+          try proto_validator_config:validate(Config) of
+              ok ->
+              {ok, Config}
+          catch error:Error ->
+              {error, Error}
+          end;
+        {error, Reason} ->
+          {error, Reason}
+      end
   end.
 
 -spec validate_proto_files(Files, Config, options()) ->
@@ -190,23 +201,34 @@ report_validation_error(File, Reason) ->
 -spec format_error_reason(term()) -> iolist().
 format_error_reason(Reason = {test_failure, _, _, _}) ->
   format_test_failure(Reason);
+format_error_reason({validation_error, Reason, Data}) ->
+  format_validation_error(Reason, Data);
 format_error_reason(Reason) ->
-  io_lib:format("~p", [Reason]).
+  io_lib:format("~0p", [Reason]).
 
 -spec format_test_failure(proto_validator_rules:test_failure()) -> string().
 format_test_failure({test_failure, _Test, {message, Data}, Message}) ->
   MessageName = maps:get(name, Data),
-  io_lib:format("invalid message ~p: ~s", [MessageName, Message]);
+  io_lib:format("invalid message ~0p: ~s", [MessageName, Message]);
 format_test_failure({test_failure, _Test, {field, Data}, Message}) ->
   FieldName = maps:get(name, Data),
   MessageName = maps:get(parent_message_name, Data),
-  io_lib:format("invalid field ~p in message ~p: ~s",
+  io_lib:format("invalid field ~0p in message ~0p: ~s",
                 [FieldName, MessageName, Message]);
 format_test_failure({test_failure, _Test, {service, Data}, Message}) ->
   ServiceName = maps:get(name, Data),
-  io_lib:format("invalid service ~p: ~s", [ServiceName, Message]);
+  io_lib:format("invalid service ~0p: ~s", [ServiceName, Message]);
 format_test_failure({test_failure, _Test, {rpc, Data}, Message}) ->
   RPCName = maps:get(name, Data),
   ServiceName = maps:get(parent_service_name, Data),
-  io_lib:format("invalid rpc ~p in service ~p: ~s",
+  io_lib:format("invalid rpc ~0p in service ~0p: ~s",
                 [RPCName, ServiceName, Message]).
+
+format_validation_error(invalid_config_entry, Entry) ->
+  io_lib:format("invalid configuration entry ~0p", [Entry]);
+format_validation_error(invalid_rule, Rule) ->
+  io_lib:format("invalid rule ~0p", [Rule]);
+format_validation_error({invalid_rule, Message}, Data) ->
+  io_lib:format("invalid rule ~0p: ~0p", [Message, Data]);
+format_validation_error(Reason, Data) ->
+  io_lib:format("~0p: ~0p", [Reason, Data]).

@@ -14,7 +14,7 @@
 
 -module(proto_validator_config).
 
--export([default_config/0, load/1, rules/1]).
+-export([default_config/0, load/1, validate/1, rules/1]).
 
 -type config() :: list(config_entry()).
 
@@ -27,6 +27,18 @@ default_config() ->
 -spec load(file:name_all()) -> {ok, config()} | {error, term()}.
 load(Path) ->
   file:consult(Path).
+
+-spec validate(config()) -> ok | no_return().
+validate(Config) ->
+  lists:foreach(fun (Entry) ->
+                    case Entry of
+                      {rules, Rules} ->
+                        proto_validator_rules:validate_rules(Rules);
+                      _ ->
+                        error({validation_error, invalid_config_entry, Entry})
+                    end
+                end, Config),
+  ok.
 
 -spec rules(config()) -> proto_validator_rules:rules().
 rules(Config) ->
