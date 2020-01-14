@@ -20,7 +20,7 @@
 
 -export_type([name/0,
               enum/0, enums/0, member/0, members/0,
-              message/0, messages/0, field/0, fields/0, occurrence/0,
+              message/0, messages/0, field/0, fields/0,
               type/0,
               service/0, services/0, rpc/0, rpcs/0]).
 
@@ -39,11 +39,9 @@
 -type message() :: {name(), fields()}.
 -type messages() :: list(message()).
 
--type field() :: {field, name(), type(), occurrence()}
+-type field() :: {field, name(), type()}
                | {oneof, name(), fields()}.
 -type fields() :: list(field()).
-
--type occurrence() :: required | optional | repeated.
 
 -type type() :: {service, name()}
               | {enum, name()}
@@ -104,8 +102,8 @@ extract_message({{msg, Name}, Fields}) ->
 -spec extract_field(term()) -> field().
 extract_field({gpb_oneof, Name, _, Fields}) ->
   {oneof, extract_name(Name), lists:map(fun extract_field/1, Fields)};
-extract_field({field, Name, _, _, Type, Occurrence, _Opts}) ->
-  {field, extract_name(Name), extract_type(Type), Occurrence}.
+extract_field({field, Name, _, _, Type, _Occurrence, _Opts}) ->
+  {field, extract_name(Name), extract_type(Type)}.
 
 -spec extract_type(term()) -> type().
 extract_type(Type) when is_atom(Type) ->

@@ -84,7 +84,7 @@ collect_message_data({Name, _}) ->
 collect_message_fields_data({MessageName, Fields}) ->
   ProcessField = fun F(Field) ->
                      case Field of
-                       {field, Name, Type, _Occurrence} ->
+                       {field, Name, Type} ->
                          #{name => Name,
                            parent_message_name => MessageName,
                            type => Type};
