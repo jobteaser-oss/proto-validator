@@ -127,7 +127,8 @@ validate_proto_files(Files, Config, Options) ->
   IncludePaths = proplists:get_all_values(include_path, Options),
   GpbBaseOpts = [use_packages,
                  to_proto_defs,
-                 ignore_wellknown_types_directory],
+                 ignore_wellknown_types_directory,
+                 return_errors],
   GpbIOptions = [{i, Path} || Path <- IncludePaths],
   GpbOptions = GpbBaseOpts ++ GpbIOptions,
   lists:map(fun (File) ->
