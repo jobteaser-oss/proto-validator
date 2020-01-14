@@ -40,28 +40,28 @@ main(Args) ->
           erlang:halt(0);
         true -> ok
       end,
+      %% Verbosity
+      put(verbose, proplists:is_defined(verbose, Options)),
+      %% Configuration file
+      Config = case load_config(Options) of
+                 {ok, Config2} ->
+                   Config2;
+                 {error, ConfigErrReason} ->
+                   ConfigErrString = format_error_reason(ConfigErrReason),
+                   die("cannot load configuration: ~s", [ConfigErrString])
+               end,
       %% Main command
-      main_validate(Options, ProtoFiles);
+      main_validate(ProtoFiles, Config, Options);
     {error, {Reason, Data}} ->
       log_error("~s ~p", [Reason, Data]),
       getopt:usage(CommandLineSpec, escript:script_name()),
       erlang:halt(1)
   end.
 
--spec main_validate(options(), Files) -> ok when
-    Files :: list(file:name_all()).
-main_validate(Options, Files) ->
-  %% Verbosity
-  put(verbose, proplists:is_defined(verbose, Options)),
-  %% Configuration file
-  Config = case load_config(Options) of
-             {ok, Config2} ->
-               Config2;
-             {error, ConfigErrReason} ->
-               ConfigErrString = format_error_reason(ConfigErrReason),
-               die("cannot load configuration: ~s", [ConfigErrString])
-           end,
-  %% File validation
+-spec main_validate(Files, Config, options()) -> ok when
+    Files :: list(file:name_all()),
+    Config :: proto_validator_config:config().
+main_validate(Files, Config, Options) ->
   Results = validate_proto_files(Files, Config, Options),
   lists:foreach(fun process_validation_result/1, Results),
   case are_validation_results_success(Results) of
