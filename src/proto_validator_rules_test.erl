@@ -16,6 +16,56 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+collect_objects_data_test() ->
+  Catalog = #{enums =>
+                [{"E1", ["M1"]}],
+              messages =>
+                [{"M3", [{oneof, "v", [{field, "i", int64},
+                                       {field, "s", string}]}]},
+                 {"M2", [{field, "f1", {message, "test.M1"}},
+                         {field, "f2", {enum, "test.E1"}}]},
+                 {"M1", [{field, "f1", string},
+                         {field, "f2", {map, string, int32}}]}],
+              services =>
+                [{"S1", [{"RPC1",
+                          {message, "test.M1"},
+                          {message, "test.M2"},
+                          false, false}]}]},
+  Data = proto_validator_rules:collect_objects_data(Catalog),
+  ?assertEqual(#{message =>
+                   [#{name => "M3"},
+                    #{name => "M2"},
+                    #{name => "M1"}],
+                 field =>
+                   [#{name => "i",
+                      parent_message_name => "M3",
+                      type => int64},
+                    #{name => "s",
+                      parent_message_name => "M3",
+                      type => string},
+                    #{name => "f1",
+                      parent_message_name => "M2",
+                      type => {message, "test.M1"}},
+                    #{name => "f2",
+                      parent_message_name => "M2",
+                      type => {enum, "test.E1"}},
+                    #{name => "f1",
+                      parent_message_name => "M1",
+                      type => string},
+                    #{name => "f2",
+                      parent_message_name => "M1",
+                      type => {map, string, int32}}],
+                 service =>
+                   [#{name => "S1"}],
+                 rpc =>
+                   [#{name => "RPC1",
+                      parent_service_name => "S1",
+                      input_type => {message, "test.M1"},
+                      input_type_name => "test.M1",
+                      output_type => {message, "test.M2"},
+                      output_type_name => "test.M2"}]
+                }, Data).
+
 evaluate_expression_test() ->
   Eval = fun (Expr, Value) ->
              proto_validator_rules:evaluate_expression(Expr, Value)
