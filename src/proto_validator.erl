@@ -201,6 +201,8 @@ report_validation_error(File, Reason) ->
 -spec format_error_reason(term()) -> iolist().
 format_error_reason(Reason = {test_failure, _, _, _}) ->
   format_test_failure(Reason);
+format_error_reason({compile_error, Reason}) ->
+  io_lib:format("protobuf compilation error: ~0p", [Reason]);
 format_error_reason({validation_error, Reason, Data}) ->
   format_validation_error(Reason, Data);
 format_error_reason(Reason) ->
