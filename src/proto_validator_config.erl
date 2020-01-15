@@ -14,11 +14,13 @@
 
 -module(proto_validator_config).
 
--export([default_config/0, load/1, validate/1, rules/1]).
+-export([default_config/0, load/1, validate/1,
+         rules/1, package_ignored/2]).
 
 -type config() :: list(config_entry()).
 
--type config_entry() :: {rules, proto_validator_rules:rules()}.
+-type config_entry() :: {rules, proto_validator_rules:rules()}
+                      | {ignored_packages, [string()]}.
 
 -spec default_config() -> config().
 default_config() ->
@@ -34,6 +36,8 @@ validate(Config) ->
                     case Entry of
                       {rules, Rules} ->
                         proto_validator_rules:validate_rules(Rules);
+                      {ignored_packages, Packages} ->
+                        validate_packages(Packages);
                       _ ->
                         error({validation_error, invalid_config_entry, Entry})
                     end
@@ -43,3 +47,22 @@ validate(Config) ->
 -spec rules(config()) -> proto_validator_rules:rules().
 rules(Config) ->
   lists:flatten(proplists:get_all_values(rules, Config)).
+
+-spec package_ignored(string(), config()) -> boolean().
+package_ignored(Package, Config) ->
+  lists:member(Package, proplists:get_value(ignored_packages, Config, [])).
+
+-spec validate_packages(list(string())) -> ok | no_return().
+validate_packages(Packages) when is_list(Packages) ->
+  lists:foreach(fun validate_package/1, Packages),
+  ok;
+validate_packages(Packages) ->
+  error({validation_error, invalid_packages, Packages}).
+
+-spec validate_package(string()) -> ok | no_return().
+validate_package(Package) when is_list(Package) ->
+  io_lib:printable_unicode_list(Package)
+    orelse error({validation_error, invalid_package, Package}),
+  ok;
+validate_package(Package) ->
+  error({validation_error, invalid_package, Package}).

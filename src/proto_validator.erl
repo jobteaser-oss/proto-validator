@@ -136,28 +136,29 @@ validate_proto_files(Files, Config, Options) ->
             end, Files).
 
 -spec validate_proto_file(File, Config, options(), gpb:opts()) ->
-        ok | {error, Reason} when
+        ok | {error, term()} when
     File :: file:name_all(),
-    Config :: proto_validator_config:config(),
-    Reason :: term().
+    Config :: proto_validator_config:config().
 validate_proto_file(File, Config, _Options, GpbOptions) ->
-  case gpb_compile:file(File, GpbOptions) of
+  case compile_proto_file(File, GpbOptions) of
     {ok, Definitions} ->
-      validate_definitions(Definitions, Config);
-    {ok, Definitions, Warnings} ->
-      lists:foreach(fun (Warning) ->
-                        log_info("warning: ~p", [Warning])
-                    end, Warnings),
-      validate_definitions(Definitions, Config);
+      Catalog = proto_validator_catalog:build_catalog(Definitions),
+      Package = maps:get(package, Catalog),
+      case proto_validator_config:package_ignored(Package, Config) of
+        true ->
+          log_info("ignoring ~p (package ~p)", [File, Package]),
+          ok;
+        false ->
+          validate_catalog(Catalog, Config)
+      end;
     {error, Reason} ->
       {error, {compile_error, Reason}}
   end.
 
--spec validate_definitions(gpb_defs:defs(), Config) -> ok | {error, Reason} when
-    Config :: proto_validator_config:config(),
-    Reason :: term().
-validate_definitions(Definitions, Config) ->
-  Catalog = proto_validator_catalog:catalog(Definitions),
+-spec validate_catalog(Catalog, Config) -> ok | {error, term()} when
+    Catalog :: proto_validator_catalog:catalog(),
+    Config :: proto_validator_config:config().
+validate_catalog(Catalog, Config) ->
   ObjectsData = proto_validator_rules:collect_objects_data(Catalog),
   Rules = proto_validator_config:rules(Config),
   RuleFun = fun (Rule) ->
@@ -198,6 +199,22 @@ process_validation_result({File, Result}) ->
 report_validation_error(File, Reason) ->
   ReasonString = format_error_reason(Reason),
   log_error("~s: ~s", [File, ReasonString]).
+
+-spec compile_proto_file(File, gpb:opts()) ->
+        {ok, gpb_defs:defs()} | {error | term()} when
+    File :: file:name_all().
+compile_proto_file(File, GpbOptions) ->
+  case gpb_compile:file(File, GpbOptions) of
+    {ok, Definitions} ->
+      {ok, Definitions};
+    {ok, Definitions, Warnings} ->
+      lists:foreach(fun (Warning) ->
+                        log_info("warning: ~p", [Warning])
+                    end, Warnings),
+      {ok, Definitions};
+    {error, Reason} ->
+      {error, Reason}
+  end.
 
 -spec format_error_reason(term()) -> iolist().
 format_error_reason(Reason = {test_failure, _, _, _}) ->

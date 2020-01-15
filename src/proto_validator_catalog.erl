@@ -14,7 +14,7 @@
 
 -module(proto_validator_catalog).
 
--export([catalog/1,
+-export([build_catalog/1,
          type_equal/2,
          validate_type/1]).
 
@@ -60,20 +60,32 @@
                 InputStream :: boolean(), OutputStream :: boolean()}.
 -type rpcs() :: list(rpc()).
 
--spec catalog(gpb_defs:defs()) -> catalog().
-catalog(Defs) ->
-  lists:foldl(fun update_catalog/2, empty_catalog(), Defs).
+-spec build_catalog(gpb_defs:defs()) -> catalog().
+build_catalog(Defs) ->
+  build_catalog(Defs, empty_catalog()).
 
--spec update_catalog(gpb_defs:defs(), catalog()) -> catalog().
-update_catalog({package, Name}, Catalog) ->
-  Catalog#{package => extract_name(Name)};
-update_catalog(Def = {{enum, _}, _}, Catalog = #{enums := Enums}) ->
-  Catalog#{enums => [extract_enum(Def) | Enums]};
-update_catalog(Def = {{msg, _}, _}, Catalog = #{messages := Messages}) ->
-  Catalog#{messages => [extract_message(Def) | Messages]};
-update_catalog(Def = {{service, _}, _}, Catalog = #{services := Services}) ->
-  Catalog#{services => [extract_service(Def) | Services]};
-update_catalog(_, Catalog) ->
+-spec build_catalog(gpb_defs:defs(), catalog()) -> catalog().
+build_catalog([{file, _} | _], Catalog = #{package := _}) ->
+  %% When compiling a file, GPB output the concatenation of the definitions of
+  %% the file and the definitions of all its dependencies. Definitions for
+  %% each file start with a `{file, Name}' term. Therefore if we already
+  %% identified a package, we can stop at the next file.
+  Catalog;
+build_catalog([{package, Name} | Defs], Catalog) ->
+  Catalog2 = Catalog#{package => extract_name(Name)},
+  build_catalog(Defs, Catalog2);
+build_catalog([Def = {{enum, _}, _} | Defs], Catalog = #{enums := Enums}) ->
+  Catalog2 = Catalog#{enums => [extract_enum(Def) | Enums]},
+  build_catalog(Defs, Catalog2);
+build_catalog([Def = {{msg, _}, _} | Defs], Catalog = #{messages := Messages}) ->
+  Catalog2 = Catalog#{messages => [extract_message(Def) | Messages]},
+  build_catalog(Defs, Catalog2);
+build_catalog([Def = {{service, _}, _} | Defs], Catalog = #{services := Services}) ->
+  Catalog2 = Catalog#{services => [extract_service(Def) | Services]},
+  build_catalog(Defs, Catalog2);
+build_catalog([_ | Defs], Catalog) ->
+  build_catalog(Defs, Catalog);
+build_catalog([], Catalog) ->
   Catalog.
 
 -spec empty_catalog() -> catalog().

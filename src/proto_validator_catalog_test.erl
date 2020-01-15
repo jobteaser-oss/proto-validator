@@ -20,7 +20,7 @@
 catalog(ProtoSource) ->
   GpbOptions = [use_packages, to_proto_defs, ignore_wellknown_types_directory],
   {ok, Defs} = gpb_compile:string(test, ProtoSource, GpbOptions),
-  proto_validator_catalog:catalog(Defs).
+  proto_validator_catalog:build_catalog(Defs).
 
 type_equal_test() ->
   Equal = fun (T1, T2) ->
