@@ -64,7 +64,8 @@ catalog_enum_test() ->
     "enum E1 { M1 = 1; }" ++
     "enum E2 { M1 = 1; M2 = 2; }",
   Catalog = catalog(Source),
-  ?assertEqual(#{enums => [{"E2", ["M1", "M2"]},
+  ?assertEqual(#{package => "test",
+                 enums => [{"E2", ["M1", "M2"]},
                            {"E1", ["M1"]}],
                  messages => [],
                  services => []},
@@ -79,7 +80,8 @@ catalog_message_test() ->
     "message M3 { oneof v { int64 i = 1; string s = 2;} }" ++
     "enum E1 { M1 = 1; }",
   Catalog = catalog(Source),
-  ?assertEqual(#{enums => [{"E1", ["M1"]}],
+  ?assertEqual(#{package => "test",
+                 enums => [{"E1", ["M1"]}],
                  messages => [{"M3", [{oneof, "v", [{field, "i", int64},
                                                     {field, "s", string}]}]},
                               {"M2", [{field, "f1", {message, "test.M1"}},
@@ -100,7 +102,8 @@ catalog_service_test() ->
     "message Req { }" ++
     "message Res { }",
   Catalog = catalog(Source),
-  ?assertEqual(#{enums => [],
+  ?assertEqual(#{package => "test",
+                 enums => [],
                  messages => [{"Res", []},
                               {"Req", []}],
                  services => [{"S1", [{"RPC1",

@@ -24,7 +24,8 @@
               type/0,
               service/0, services/0, rpc/0, rpcs/0]).
 
--type catalog() :: #{enums := enums(),
+-type catalog() :: #{package := string(),
+                     enums := enums(),
                      messages := messages(),
                      services := services()}.
 
@@ -64,6 +65,8 @@ catalog(Defs) ->
   lists:foldl(fun update_catalog/2, empty_catalog(), Defs).
 
 -spec update_catalog(gpb_defs:defs(), catalog()) -> catalog().
+update_catalog({package, Name}, Catalog) ->
+  Catalog#{package => extract_name(Name)};
 update_catalog(Def = {{enum, _}, _}, Catalog = #{enums := Enums}) ->
   Catalog#{enums => [extract_enum(Def) | Enums]};
 update_catalog(Def = {{msg, _}, _}, Catalog = #{messages := Messages}) ->
