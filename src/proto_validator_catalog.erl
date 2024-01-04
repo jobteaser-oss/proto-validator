@@ -117,6 +117,8 @@ extract_message({{msg, Name}, Fields}) ->
 -spec extract_field(term()) -> field().
 extract_field({gpb_oneof, Name, _, Fields}) ->
   {oneof, extract_name(Name), lists:map(fun extract_field/1, Fields)};
+extract_field({gpb_oneof, Name, Value, Fields, []}) ->
+    extract_field({gpb_oneof, Name, Value, Fields});
 extract_field({field, Name, _, _, Type, _Occurrence, _Opts}) ->
   {field, extract_name(Name), extract_type(Type)}.
 
